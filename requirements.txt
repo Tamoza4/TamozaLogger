@@ -1,0 +1,11 @@
+# TamozaLogger — Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# Discord bot framework (v2.x — required for app commands, views, and new event system)
+discord.py>=2.4.0
+
+# Async PostgreSQL driver
+asyncpg>=0.29.0
+
+# Environment variable loading
+python-dotenv>=1.0.0
