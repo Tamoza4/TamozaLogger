@@ -1503,3 +1503,9 @@ discord.errors.NotFound: 404 Not Found (error code: 10062): Unknown interaction
 [2026-08-17 18:41:33] INFO     tamoza: ============================================================
 [2026-08-17 18:41:33] INFO     cogs.member_logs: [InviteTracker] In-memory cache warmed for 1 guilds.
 [2026-08-17 18:41:33] INFO     tamoza: Invite cache seeded for 1/1 guilds.
+[2026-08-17 19:10:27] INFO     tamoza: Shutting down — closing database pool…
+[2026-08-17 19:10:27] INFO     database.db: Database pool closed.
+[2026-08-17 19:18:11] INFO     discord.client: logging in using static token
+[2026-08-17 19:18:12] INFO     tamoza: Shutting down — closing database pool…
+[2026-08-17 19:18:20] INFO     discord.client: logging in using static token
+[2026-08-17 19:18:20] INFO     tamoza: Shutting down — closing database pool…

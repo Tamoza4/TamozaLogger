@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableDelayedExpansion
-title TamozaLogger - One-Click Installer
+title TamozaLogger - Interactive Windows Installer
 color 0B
 
 echo ===============================================================================
@@ -11,7 +11,7 @@ echo.
 :: -----------------------------------------------------------------------------
 :: Step 1: Check Administrator Privileges
 :: -----------------------------------------------------------------------------
-echo [1/6] Checking Administrator permissions...
+echo [1/5] Checking Administrator permissions...
 net session >nul 2>&1
 if %errorlevel% neq 0 (
     echo [!] Administrator privileges required to install software and services.
@@ -27,7 +27,7 @@ cd /d "%~dp0"
 :: -----------------------------------------------------------------------------
 :: Step 2: Check & Install Python (3.11+)
 :: -----------------------------------------------------------------------------
-echo [2/6] Checking Python installation...
+echo [2/5] Checking Python installation...
 set "PY_CMD="
 
 python --version >nul 2>&1
@@ -55,7 +55,6 @@ if "%PY_CMD%"=="" (
         del python_installer.exe
     )
     
-    :: Refresh Environment PATH
     set "PATH=%ProgramFiles%\Python312;%ProgramFiles%\Python312\Scripts;%LocalAppData%\Programs\Python\Python312;%LocalAppData%\Programs\Python\Python312\Scripts;%PATH%"
     set "PY_CMD=python"
     echo [OK] Python installation completed.
@@ -65,7 +64,7 @@ echo.
 :: -----------------------------------------------------------------------------
 :: Step 3: Check & Install PostgreSQL
 :: -----------------------------------------------------------------------------
-echo [3/6] Checking PostgreSQL database server...
+echo [3/5] Checking PostgreSQL database server...
 sc query postgresql-x64-16 >nul 2>&1
 if %errorlevel% neq 0 (
     sc query postgresql >nul 2>&1
@@ -81,93 +80,83 @@ if %errorlevel% neq 0 (
     )
 )
 
-:: Start PostgreSQL service if stopped
 echo [*] Ensuring PostgreSQL service is running...
 powershell -Command "Get-Service -Name '*postgres*' | Where-Object { $_.Status -ne 'Running' } | Start-Service" >nul 2>&1
 echo [OK] PostgreSQL service verified.
 echo.
 
 :: -----------------------------------------------------------------------------
-:: Step 4: Setup Python Virtual Environment (venv) & Dependencies
+:: Step 4: Interactive Configuration Wizard
 :: -----------------------------------------------------------------------------
-echo [4/6] Setting up Python virtual environment...
+echo ===============================================================================
+echo                INTERACTIVE CONFIGURATION WIZARD
+echo ===============================================================================
+echo Please enter your custom credentials below:
+echo.
+
+:prompt_token
+set "BOT_TOKEN="
+set /p "BOT_TOKEN=1. Enter your Discord Bot Token: "
+if "%BOT_TOKEN%"=="" (
+    echo [!] Bot Token cannot be empty.
+    goto prompt_token
+)
+
+echo.
+echo 2. PostgreSQL Database Settings (Press ENTER for defaults):
+set "DB_HOST=localhost"
+set /p "DB_HOST=   Database Host [default: localhost]: "
+
+set "DB_PORT=5432"
+set /p "DB_PORT=   Database Port [default: 5432]: "
+
+set "DB_NAME=tamoza_logger"
+set /p "DB_NAME=   Database Name [default: tamoza_logger]: "
+
+set "DB_USER=postgres"
+set /p "DB_USER=   Database Username [default: postgres]: "
+
+:prompt_pass
+set "DB_PASS="
+set /p "DB_PASS=   Database Password for '%DB_USER%': "
+if "%DB_PASS%"=="" (
+    echo [!] Database password cannot be empty.
+    goto prompt_pass
+)
+
+echo.
+echo [*] Writing configuration to .env...
+(
+    echo # TamozaLogger — Environment Variables
+    echo BOT_TOKEN=%BOT_TOKEN%
+    echo DB_DSN=postgresql://%DB_USER%:%DB_PASS%@%DB_HOST%:%DB_PORT%/%DB_NAME%
+    echo DEFAULT_PREFIX=!
+    echo APPLICATION_ID=0
+) > .env
+echo [OK] .env file written successfully.
+echo.
+
+:: -----------------------------------------------------------------------------
+:: Step 5: Python Virtual Environment & Database Schema
+:: -----------------------------------------------------------------------------
+echo [5/5] Setting up Python virtual environment and database schema...
 if not exist "venv" (
-    echo [*] Creating virtual environment 'venv'...
     %PY_CMD% -m venv venv
 )
 
-echo [*] Upgrading pip...
+echo [*] Installing requirements...
 call venv\Scripts\python.exe -m pip install --upgrade pip --quiet
-
-echo [*] Installing requirements from requirements.txt...
 call venv\Scripts\python.exe -m pip install -r requirements.txt --quiet
-echo [OK] All Python dependencies installed successfully.
-echo.
 
-:: -----------------------------------------------------------------------------
-:: Step 5: Setup .env Configuration
-:: -----------------------------------------------------------------------------
-echo [5/6] Checking configuration (.env)...
-if not exist ".env" (
-    if exist ".env.example" (
-        copy ".env.example" ".env" >nul
-        echo [!] Created .env file from .env.example.
-    ) else (
-        (
-            echo BOT_TOKEN=YOUR_BOT_TOKEN_HERE
-            echo DB_DSN=postgresql://postgres:postgres@localhost:5432/tamoza_logger
-            echo DEFAULT_PREFIX=!
-            echo APPLICATION_ID=0
-        ) > .env
-        echo [!] Created default .env file.
-    )
-    echo [*] Please edit .env with your Discord BOT_TOKEN and database password.
-) else (
-    echo [OK] .env file exists.
-)
-echo.
-
-:: -----------------------------------------------------------------------------
-:: Step 6: Initialize PostgreSQL Database & Apply Schema
-:: -----------------------------------------------------------------------------
-echo [6/6] Initializing PostgreSQL database & schema...
+echo [*] Applying database schema...
 call venv\Scripts\python.exe database\setup_db.py
-if %errorlevel% neq 0 (
-    echo [!] Note: If database setup failed, please check your DB_DSN credentials in .env.
-)
 echo.
-
-:: -----------------------------------------------------------------------------
-:: Create Start.bat helper
-:: -----------------------------------------------------------------------------
-(
-    echo @echo off
-    echo title TamozaLogger
-    echo color 0A
-    echo cd /d "%%~dp0"
-    echo echo ===============================================================================
-    echo echo                           STARTING TAMOZA LOGGER
-    echo echo ===============================================================================
-    echo echo.
-    echo if not exist "venv\Scripts\python.exe" (
-    echo     echo [ERROR] Virtual environment not found. Please run Install.bat first.
-    echo     pause
-    echo     exit /b 1
-    echo ^)
-    echo call venv\Scripts\python.exe bot.py
-    echo if %%errorlevel%% neq 0 (
-    echo     echo.
-    echo     echo [!] Bot exited with error code %%errorlevel%%.
-    echo     pause
-    echo ^)
-) > Start.bat
 
 echo ===============================================================================
 echo                           INSTALLATION COMPLETED!
 echo ===============================================================================
 echo.
-echo  1. Make sure your BOT_TOKEN and DB_DSN are configured in: .env
-echo  2. To start the bot anytime, simply double-click: Start.bat
+echo  To start the bot anytime, simply double-click: Start.bat
 echo.
 echo ===============================================================================
 pause

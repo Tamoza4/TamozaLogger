@@ -1,11 +1,11 @@
 """
 database/setup_db.py — Automatic Database Initializer & Verification
 ====================================================================
-Used by Install.bat or run standalone to:
+Used by install.sh / Install.bat or run standalone to:
   1. Parse DB_DSN from .env
-  2. Ensure PostgreSQL service is running and accessible
-  3. Create the database if it doesn't exist
-  4. Apply database/schema.sql
+  2. Verify connection to the PostgreSQL database
+  3. Create the database if it doesn't exist yet
+  4. Apply database/schema.sql to build tables and indexes
 """
 
 from __future__ import annotations
@@ -18,8 +18,8 @@ from urllib.parse import urlparse
 import asyncpg
 from dotenv import load_dotenv
 
-# Load .env
-load_dotenv()
+# Force reload .env
+load_dotenv(override=True)
 
 
 async def setup_database() -> bool:
@@ -36,16 +36,32 @@ async def setup_database() -> bool:
     host = parsed.hostname or "localhost"
     port = parsed.port or 5432
 
-    # Step 1: Connect to default 'postgres' database to check/create target database
-    print(f"Connecting to PostgreSQL server at {host}:{port} as user '{user}'…")
+    schema_path = os.path.join(os.path.dirname(__file__), "schema.sql")
+
+    # Attempt 1: Try connecting directly to the target database
+    print(f"Connecting to database '{db_name}' at {host}:{port} as user '{user}'…")
     try:
-        root_conn = await asyncpg.connect(
-            user=user,
-            password=password,
-            host=host,
-            port=port,
-            database="postgres",
-        )
+        db_conn = await asyncpg.connect(dsn)
+        print(f"✓ Connected to database '{db_name}'.")
+    except asyncpg.InvalidCatalogNameError:
+        # Database does not exist yet; attempt to create it via 'postgres' DB
+        print(f"Database '{db_name}' does not exist. Creating it…")
+        try:
+            root_conn = await asyncpg.connect(
+                user=user,
+                password=password,
+                host=host,
+                port=port,
+                database="postgres",
+            )
+            await root_conn.execute(f'CREATE DATABASE "{db_name}"')
+            await root_conn.close()
+            print(f"✓ Database '{db_name}' created successfully.")
+            # Now reconnect to newly created DB
+            db_conn = await asyncpg.connect(dsn)
+        except Exception as exc:
+            print(f"❌ Failed to create database '{db_name}': {exc}")
+            return False
     except Exception as exc:
         print(f"❌ Failed to connect to PostgreSQL server: {exc}")
         print("\nPossible solutions:")
@@ -53,30 +69,9 @@ async def setup_database() -> bool:
         print("  2. Check username and password in .env (DB_DSN).")
         return False
 
-    try:
-        # Check if target database exists
-        exists = await root_conn.fetchval(
-            "SELECT 1 FROM pg_database WHERE datname = $1", db_name
-        )
-        if not exists:
-            print(f"Creating database '{db_name}'…")
-            await root_conn.execute(f'CREATE DATABASE "{db_name}"')
-            print(f"✓ Database '{db_name}' created successfully.")
-        else:
-            print(f"✓ Database '{db_name}' already exists.")
-    finally:
-        await root_conn.close()
-
-    # Step 2: Connect to target database and apply schema.sql
+    # Apply schema.sql
     print(f"Applying schema to '{db_name}'…")
     try:
-        db_conn = await asyncpg.connect(dsn)
-    except Exception as exc:
-        print(f"❌ Failed to connect to target database '{db_name}': {exc}")
-        return False
-
-    try:
-        schema_path = os.path.join(os.path.dirname(__file__), "schema.sql")
         if os.path.exists(schema_path):
             with open(schema_path, "r", encoding="utf-8") as fh:
                 sql = fh.read()
