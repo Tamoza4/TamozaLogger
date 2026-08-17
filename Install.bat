@@ -1,10 +1,10 @@
 @echo off
 setlocal EnableDelayedExpansion
-title TamozaLogger - Interactive Windows Installer
+title TamozaLogger - Fully Automated Windows Installer
 color 0B
 
 echo ===============================================================================
-echo                TAMOZA LOGGER - AUTOMATED WINDOWS INSTALLER
+echo             TAMOZA LOGGER - 100%% AUTOMATED WINDOWS INSTALLER
 echo ===============================================================================
 echo.
 
@@ -75,8 +75,6 @@ if %errorlevel% neq 0 (
     winget --version >nul 2>&1
     if %errorlevel% equ 0 (
         winget install -e --id PostgreSQL.PostgreSQL.16 --silent --accept-package-agreements --accept-source-agreements
-    ) else (
-        echo [!] Please install PostgreSQL from https://www.postgresql.org/download/windows/
     )
 )
 
@@ -86,54 +84,20 @@ echo [OK] PostgreSQL service verified.
 echo.
 
 :: -----------------------------------------------------------------------------
-:: Step 4: Interactive Configuration Wizard
+:: Step 4: Configure .env Automatically
 :: -----------------------------------------------------------------------------
-echo ===============================================================================
-echo                INTERACTIVE CONFIGURATION WIZARD
-echo ===============================================================================
-echo Please enter your custom credentials below:
-echo.
-
-:prompt_token
-set "BOT_TOKEN="
-set /p "BOT_TOKEN=1. Enter your Discord Bot Token: "
-if "%BOT_TOKEN%"=="" (
-    echo [!] Bot Token cannot be empty.
-    goto prompt_token
+echo [4/5] Configuring environment (.env)...
+if not exist ".env" (
+    (
+        echo BOT_TOKEN=YOUR_BOT_TOKEN_HERE
+        echo DB_DSN=postgresql://postgres:postgres@localhost:5432/tamoza_logger
+        echo DEFAULT_PREFIX=!
+        echo APPLICATION_ID=0
+    ) > .env
+    echo [OK] Created .env with default local settings.
+) else (
+    echo [OK] Existing .env file preserved.
 )
-
-echo.
-echo 2. PostgreSQL Database Settings (Press ENTER for defaults):
-set "DB_HOST=localhost"
-set /p "DB_HOST=   Database Host [default: localhost]: "
-
-set "DB_PORT=5432"
-set /p "DB_PORT=   Database Port [default: 5432]: "
-
-set "DB_NAME=tamoza_logger"
-set /p "DB_NAME=   Database Name [default: tamoza_logger]: "
-
-set "DB_USER=postgres"
-set /p "DB_USER=   Database Username [default: postgres]: "
-
-:prompt_pass
-set "DB_PASS="
-set /p "DB_PASS=   Database Password for '%DB_USER%': "
-if "%DB_PASS%"=="" (
-    echo [!] Database password cannot be empty.
-    goto prompt_pass
-)
-
-echo.
-echo [*] Writing configuration to .env...
-(
-    echo # TamozaLogger — Environment Variables
-    echo BOT_TOKEN=%BOT_TOKEN%
-    echo DB_DSN=postgresql://%DB_USER%:%DB_PASS%@%DB_HOST%:%DB_PORT%/%DB_NAME%
-    echo DEFAULT_PREFIX=!
-    echo APPLICATION_ID=0
-) > .env
-echo [OK] .env file written successfully.
 echo.
 
 :: -----------------------------------------------------------------------------
@@ -153,10 +117,11 @@ call venv\Scripts\python.exe database\setup_db.py
 echo.
 
 echo ===============================================================================
-echo                           INSTALLATION COMPLETED!
+echo                     INSTALLATION 100%% COMPLETED!
 echo ===============================================================================
 echo.
-echo  To start the bot anytime, simply double-click: Start.bat
+echo  1. Make sure your BOT_TOKEN is in: .env
+echo  2. To start the bot anytime, double-click: Start.bat
 echo.
 echo ===============================================================================
 pause
