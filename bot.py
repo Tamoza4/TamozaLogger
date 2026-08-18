@@ -16,6 +16,7 @@ import os
 import sys
 from typing import Any
 
+import aiohttp
 import discord
 from discord.ext import commands
 
@@ -188,9 +189,24 @@ class TamozaLogger(commands.Bot):
 # ---------------------------------------------------------------------------
 
 async def main() -> None:
-    bot = TamozaLogger()
-    async with bot:
-        await bot.start(config.BOT_TOKEN)
+    max_retries = 10
+    retry_delay = 5
+
+    for attempt in range(1, max_retries + 1):
+        bot = TamozaLogger()
+        try:
+            async with bot:
+                await bot.start(config.BOT_TOKEN)
+            break
+        except (aiohttp.ClientConnectorError, aiohttp.ClientConnectorDNSError, OSError) as exc:
+            log.warning(
+                "Network/DNS connection delay (%s). Retrying in %ds (attempt %d/%d)...",
+                exc, retry_delay, attempt, max_retries,
+            )
+            if attempt == max_retries:
+                log.error("Maximum network connection retries reached. Exiting.")
+                raise
+            await asyncio.sleep(retry_delay)
 
 
 if __name__ == "__main__":

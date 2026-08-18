@@ -182,15 +182,17 @@ if command -v systemctl >/dev/null 2>&1; then
     $SUDO_CMD bash -c "cat <<EOF > $SERVICE_FILE
 [Unit]
 Description=TamozaLogger Discord Bot
-After=network.target postgresql.service
+Wants=network-online.target postgresql.service
+After=network-online.target postgresql.service
 
 [Service]
 Type=simple
 User=$CURRENT_USER
 WorkingDirectory=$SCRIPT_DIR
+Environment=PYTHONUNBUFFERED=1
 ExecStart=$SCRIPT_DIR/venv/bin/python3 $SCRIPT_DIR/bot.py
 Restart=always
-RestartSec=5
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
